@@ -26,6 +26,39 @@ Los Cortex-M3 y Cortex-M4 son núcleos similares, la principal diferencia es la 
 
 Por debajo de los Cortex-M3 y Cortex-M4 se ubican los Cortex-M0 y Cortex-M0+. Apuntan a una implementación mínima para bajo consumo y bajo costo. Utilizan un subset de Thumb-2.
 
+## Diferencia entre familias de procesadores Cortex
+
+|                         | Cortex-M0 y M0+ | Cortex-M3 | Cortex-M4 | Cortex-M7 |
+|-------------------------|-----------------|-----------|-----------|-----------|
+| Arquitectura ARM        | ARMv6-M         | ARMv7-M   | ARMv7E-M  | ARMv7E-M  |
+| Arquitectura de memoria | Von-Neumann     | Harvard   | Harvard   | Harvard   |
+| CPU cache               | No              | No        | Posible   | Opcional  |
+| Memotia altamente acoplada (TCM) | No | No | No | Opcional |
+| [Unidad de Protección de Memoria (MPU)](README.md#unidad-de-protección-de-memoria-mpu) | No (Opcional en M0+) | Opcional | Opcional | Opcional |
+| Bit-banding             | Opcional        | Si        | Si        | Si        |
+| [SysTick Timer](README.md#systick-timer) | Opcional | Si | Si     | Si        |
+
+
+## Mapa de memoria de ARM Cortex-M
+Con 32 bits para direccionar, los procesadores ARM pueden acceder hasta 4GB de espacio de memoria.
+Los 4GB del espacio de dirección de los Cortex-M se particiona en un determinado número de regiones de memoria. La partición se basa en el tipo de uso, de tal forma que las diferentes áreas se diseñan para utilizarse principalmente en:
+
+- Código del progrma
+- Acceso a información
+- Periféricos
+- Control interno del procesador y componentes para debug
+
+La arquitectura permite gran flexibilidad para permitir que las regiones de memoria sean utilizadas con otros propósitos.
+
+En la práctica muchos microcontroladores solo utilizan una porcion de cada región para flash, SRAM y periféricos.
+
+El arreglo del mapa de memoria es consistente entre todos los procesadores Cortex-M. Esto hace que sea más facil portar software de un Cortex-M a otro y permite una mejor reusabilidad de código.
+
+A continuación se observa el mapa de memoria de los procesadores Cortex-M:
+
+![Memory Map](imgs/mamory_map.png)
+
+
 ## Arquitecture load-store
 La arquitectura load-store es una arquitectura cuyo set de instrucciones se divide en dos categorías: De acceso a memoria, asociada a la carga y almacenamiento entre memoria y registros, y operaciones de ALU (unidad aritmética lógica) que solo ocurren entre registros. Si hay información en memoria a aser procesada, primero debe ser cargada en registros, procesada en el procesador y escrita nuevamente en memoria de ser necesario. 
 
