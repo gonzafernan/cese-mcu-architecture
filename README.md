@@ -1,3 +1,7 @@
+---
+title: Arquitectura de Microprocesadores
+author: Gonzalo G. Fernandez
+---
 Carrera de Especialización en Sistemas Embebidos - Universidad de Buenos Aires
 ---
 # Arquitectura de Microprocesadores
@@ -28,6 +32,8 @@ Por debajo de los Cortex-M3 y Cortex-M4 se ubican los Cortex-M0 y Cortex-M0+. Ap
 
 ## Diferencia entre familias de procesadores Cortex
 
+Comparación de arquitecturas:
+
 |                         | Cortex-M0 y M0+ | Cortex-M3 | Cortex-M4 | Cortex-M7 |
 |-------------------------|-----------------|-----------|-----------|-----------|
 | Arquitectura ARM        | ARMv6-M         | ARMv7-M   | ARMv7E-M  | ARMv7E-M  |
@@ -38,6 +44,29 @@ Por debajo de los Cortex-M3 y Cortex-M4 se ubican los Cortex-M0 y Cortex-M0+. Ap
 | Bit-banding             | Opcional        | Si        | Si        | Si        |
 | [SysTick Timer](README.md#systick-timer) | Opcional | Si | Si     | Si        |
 
+Comparación de extensiones:
+
+|                         | Cortex-M0 y M0+ | Cortex-M3 | Cortex-M4 | Cortex-M7 |
+|-------------------------|-----------------|-----------|-----------|-----------|
+| Unidad de punto flotante| No              | No        | Opcional  | Opcional  |
+| Extensiones para DSP    | No              | No        | Si        | Si        |
+| Aritmética saturada     | No              | Si        | Si        | Si        |
+| División por hardware   | No              | Si        | Si        | Si        |
+| Multiplicación por hardware | Resultado de 32-bit | Resultado de 32 o 64-bit | Resultado de 32 o 64-bit | Resultado de 32 o 64-bit |
+
+A partir del procesador Cortex-M3 se soporta todo Thumb-2.
+
+## Tecnología Thumb-2
+Todos los procesadores Cortex-M poseen tecnología Thumb-2 y diferentes subsets del ISA Thumb. Previo a Thumb-2, la ISA Thumb era solo para set de instrucciones de 16 bits. Thumb-2 extendió la ISA a un set altamente potente y eficiente que otorga beneficios considerables en términos de facilidad de uso, tamaño de código y rendimiento.
+
+Al permitir instrucciones tanto de 16 como 32 bits, Thumb-2 elimina la necesidad de conmutar el procesador entre estado Thumb (instrucciones de 16 bits) y estado ARM (instrucciones de 32 bits). Esto le permite a los procesadores Cortex-M mezclar instrucciones de 16 y 32 bits sin cambiar de estado, lo que conlleva una gran densidad de código y alto rendimiento, sin añadir complejidad.
+
+## Arquitecture load-store
+La arquitectura load-store es una arquitectura cuyo set de instrucciones se divide en dos categorías: De acceso a memoria, asociada a la carga y almacenamiento entre memoria y registros, y operaciones de ALU (unidad aritmética lógica) que solo ocurren entre registros. Si hay información en memoria a ser procesada, primero debe ser cargada en registros, procesada en el procesador y escrita nuevamente en memoria de ser necesario. 
+
+Por ejemplo, en una arquitectura load-store, ambos operandos de una operación ADD deben ser registros. Esto difiere de una arquitectura registro-memoria (por ejemplo CISC) donde alguno de los operandos para la operación ADD  puede encontrarse en memoria y el otro en un registro.
+
+La familia Cortex de ARM  (y en general cualquiera de ARM) es una arquitectura load-store.
 
 ## Mapa de memoria de ARM Cortex-M
 Con 32 bits para direccionar, los procesadores ARM pueden acceder hasta 4GB de espacio de memoria.
@@ -58,13 +87,54 @@ A continuación se observa el mapa de memoria de los procesadores Cortex-M:
 
 ![Memory Map](imgs/mamory_map.png)
 
+## Shadowed stack pointer: MSP y PSP
+Hay dos stack pointers en los procesadores Cortex-M:
 
-## Arquitecture load-store
-La arquitectura load-store es una arquitectura cuyo set de instrucciones se divide en dos categorías: De acceso a memoria, asociada a la carga y almacenamiento entre memoria y registros, y operaciones de ALU (unidad aritmética lógica) que solo ocurren entre registros. Si hay información en memoria a aser procesada, primero debe ser cargada en registros, procesada en el procesador y escrita nuevamente en memoria de ser necesario. 
+- El MSP (Main Stack Pointer) es el stack pointer por defecto. Es utilizado en modo Thread cuando el bit 1 de CONTROL (SPSEL) es 0, y es utilizado siempre en mode Handle.
+- El PSP (Processor Stack Pointer) es el stack pointer utilizado en modo Thread cuando el bot 1 de CONTROL (SPSEL) es 1.
 
-Por ejemplo, en una arquitectura load-store, ambos operandos de una operación ADD deben ser registros. Esto difiere de una arquitectura registro-memoria (por ejemplo CISC) donde alguno de los operandos para la operación ADD  puede encontrarse en memoria y el otro en un registro.
+Operaciones de stack como las instrucciones PUSH y POP, y la mayoría de las instrucciones que utilizan el registro SP (R13) utilizan el stack pointer que se encuentre seleccionado en ese momento. 
+También se puede acceder al MSP y PSP directamente utilizando las instrucciones MRS y MSR. 
 
-La familia Cortex de ARM  (y en general cualquiera de ARM) es una arquitectura load-store.
+En las aplicaciones simples, sin un RTOS, se puede utilizar solo el MSP e ignorar el PSP.
+En sistemas con un RTOS, la gestión de interrupciones utiliza MSP, mientras que las tareas de la aplicación utilizan el PSP. Cada tarea de la aplicación posee su propio espacio de stack y en el cambio de contexto el RTOS actualiza el PSP al espacio correspondiente.
+
+## Stack
+El stack (o pila) es un mecanismo para uso de memoria que permite usar una porción de memoeria como un buffer LIFO (Last-In-First-Out).
+Los princepales instrucciones a ejecutar sobre el stack son PUSH, para guardar un dato, y POP, para obtener un dato.
+Cada vez que se ejecuta una instrucción PUSH o POP, se opera sobre el stack que este seleccionado en ese momento.
+
+El stack puede ser utilizado para:
+
+- Almacenamiento temporal de información cuando una función ejecutada necesita utilizar un registro.
+- Pasar información a funciones o subrutinas (argumentos).
+- Para almacenar variables locales.
+- Para mantener el estado del procesador y el valor de los registros en caso de una excepción/interrupción.
+
+Los procesadores Cortex-M utilizan un modelo de memoria de stack denominado "full-descending stack". En la siguiente figura se observa una representación de las operaciones de PUSH y POP:
+
+![Stack PUSH y POP](imgs/stack_push_pop.png)
+
+### Uso de PUSH y POP en funciones
+Uno de los usos más comunes de las instrucciones PUSH y POP es almacenar el contenido de los registros cuando es ejecuta el llamado a una función o subrutina.
+
+En la siguiente figura se puede observar el llamado a la función *function1*:
+
+![Uso de PUSH y POP en funciones](imgs/stack_function_call.png)
+
+Como *function1* nesecita utilizar y modificar los registros R4, R5 y R6, y esos registros contienen información que debe ser utilizada por el programa principal una vez que finalice la función, se pueden almacenar en el stack utilizando PUSH y recuperarlos con POP al final de la función.
+
+**NOTA: Prestar especial atención al orden de los diferentes PUSH y POP.**
+
+Se realizar PUSH y POP de múltiples registros de la siguiente forma:
+
+```asm
+function1
+    PUSH {R4-R6}    ; Store R4, R5, R6 to stack
+    ...
+    POP {R4-R6}     ; Restore R4, R5, R6
+    BX LR           ; Return
+```
 
 ## SysTick timer
 Los procesadores Cortex-M tienen integrado un timer pequeño denominado SysTick (System Tick). Es un timer de 24 bits de decremento simple y puede ejecutarse con la frecuencia de clock del procesador o de una referencia de clock externa.
