@@ -87,6 +87,35 @@ A continuación se observa el mapa de memoria de los procesadores Cortex-M:
 
 ![Memory Map](imgs/mamory_map.png)
 
+## Modos de operación y estados
+Los procesadores Cortex-M3 y M4 tienen dos modos de operación y dos estados de operación. Los procesadores pueden tener niveles de acceso privilegiado y no privilegiado. El acceso privelegiado da acceso a todos los recursos en el procesador, mientras que el acceso no privilegiado deja regiones de memoria inaccesibles y algunas operaciones no pueden ser utilizadas.
+
+En la siguiente figura se observa la máquina de estados finitos con los estados, modos y transiciones:
+
+![Modos de operación y estados](imgs/op_states_modes.png)
+
+Estados de operación:
+- El estado Debug, donde se haltea el procesador por el debugger.
+- El estado Thumb, donde el procesador se encuentra ejecutando el programa en modo Thumb. No hay estado ARM porque los procesadores Cortex-M no soportan set de instrucciones ARM.
+
+Modos de operación:
+- Modo Handler: Cuando se ejecuta un gestor de excepciones, como puede ser una rutina de interrupción (ISR). En modo Handler el procesador siempre tiene acceso privilegiado.
+- Modo Thread: Cuando se ejecuta el código de aplicación normal. El procesador puede o no estar en modo privilegiado.
+
+El software puede cambiar el procesador de acceso privilegiado en modo Thread a no privilegiado en modo Thread pero no vice versa. Para lo último es necesario usar un mecanismo de excepciones que permita la transición.
+
+La separación entre niveles de acceso privilegiado y no privilegiado permite a los diseñadores del sistema desarrollar sistemas embebidos robustos, brindando un mecanismo para hacer seguro el acceso a ciertas regiones críticas de memoria.
+
+Por ejemplo, un sistema con el kernel de un RTOS que se ejecuta con acceso privilegiado y las tareas de la aplicación que se ejecutan en modo no privilegiado. De ese modo puede configurarse la MPU (Memory Protection Unit) para prevenir que las tareas corrompan la memoria y los periféricos usados por el kernel del RTOS y otras tareas. Si una tarea crashea, el resto de las tareas y el kernel del RTOS pueden seguir ejecutándose.
+
+A continuación se observa la inicialización de una tarea y el cambio de contexto en un RTOS:
+
+![Inicialización de una tarea en OS simple](imgs/task_init.png)
+
+![Concepto de cambio de contexto](imgs/context_switch.png)
+
+Se puede observar como la transición de modo no privilegiado a privilegiado es a través de la excepción generada por el SysTick.
+
 ## Shadowed stack pointer: MSP y PSP
 Hay dos stack pointers en los procesadores Cortex-M:
 
