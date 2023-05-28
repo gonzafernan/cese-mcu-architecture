@@ -45,7 +45,7 @@ ETH_TxPacketConfig TxConfig;
 ETH_DMADescTypeDef  DMARxDscrTab[ETH_RX_DESC_CNT]; /* Ethernet Rx DMA Descriptors */
 ETH_DMADescTypeDef  DMATxDscrTab[ETH_TX_DESC_CNT]; /* Ethernet Tx DMA Descriptors */
 
- ETH_HandleTypeDef heth;
+ETH_HandleTypeDef heth;
 
 UART_HandleTypeDef huart3;
 
