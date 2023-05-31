@@ -128,6 +128,17 @@ También se puede acceder al MSP y PSP directamente utilizando las instrucciones
 En las aplicaciones simples, sin un RTOS, se puede utilizar solo el MSP e ignorar el PSP.
 En sistemas con un RTOS, la gestión de interrupciones utiliza MSP, mientras que las tareas de la aplicación utilizan el PSP. Cada tarea de la aplicación posee su propio espacio de stack y en el cambio de contexto el RTOS actualiza el PSP al espacio correspondiente.
 
+## Reset, NMI y Hardfault
+La excepciones de reset, NMI y Hardfault tienen nivel de prioridad fijo (no configurable) y se representan con números negativos para indicar que tienen prioridad mayor al resto. Las prioridades son las siguientes:
+
+- Reset: prioridad -3 (la más alta)
+- NMI: prioridad -2
+- Hard fault: prioridad -1
+
+La excepción **NMI (*Non-Maskable Interrupt*)** es una excepción no enmascarable y no puede deshabilitarse. Puede utilizarse con timer watchdog o un detector de brownout (caída de voltaje).
+
+La exepción de **HardFault** puede producirse por una excepción configurable de falla que haya escalado, por un error en el bus durante el fetch de un vector, o por la ejecución de una instrucción de breakpoint (BKPT) cuando se esta utilizando un debugger.
+
 ## Stack
 El stack (o pila) es un mecanismo para uso de memoria que permite usar una porción de memoeria como un buffer LIFO (Last-In-First-Out).
 Los princepales instrucciones a ejecutar sobre el stack son PUSH, para guardar un dato, y POP, para obtener un dato.
@@ -165,6 +176,53 @@ function1
     BX LR           ; Return
 ```
 
+## Secuencia de reset
+En un microcontrolador Cortex-M típico pueden haber tres tipos de reset:
+
+- Reset de encendido: resetea todo lo que hay en el microcontrolador (el procesador con sus componentes de debug y los periféricos)
+- Reset del sistema: resetea únicamente el procesador y los periféricos, no los componentes de debug.
+- Reset del procesador: resetea únicamente el procesador.
+
+Despues del reset y antes de que el procesador inicie la ejecución del programa, el procesador Cortex-M lee las primeras dos palabras en memoria. El principio del espacio de memoria contiene la tabla de vectores cuya primeras dos palabras son el valor inicial del MSP y el vector de reset, que es la dirección inicial del reset handler. Despues de que el procesador lee esas dos palabra, setea el MSP y el PC con esos valores.
+
+El seteo del MSP es necesario porque algunas interrupciones como el NMI o HardFault pueden ocurrir en un periodo de tiempo corto despues del reset y el stack (por lo tanto el MSP) seran necesarios para pushear algunas variables de estado del procesador antes de manejar la excepción.
+
+![Reset sequence](imgs/reset_sequence.png)
+
+Como las operaciones de stack en los procesadores Cortex-M3 y Cortex-M4 se basan en un modelo *full descending*, el valor inicial del SP se debe setear en la primer dirección de memoria después del final de la región de stack.
+
+![Initial stack pointer](imgs/reset_initial_values.png)
+
+## CMSIS
+CMSIS fue desarrollado por ARM para permitir a los fabricantes de microcontroladores usar una infraestructura de software consistente a la hora de desarrollar soluciones de software para microcontroladores Cortex-M.
+
+Fue iniciado como una forma de establecer consistencia entre las librería para drivers para microcontroladores Cortex-M, lo que se terminó convirtiendo en CMSIS-Core. Desde entonces, existen los siguientes proyectos:
+
+- CMSIS-Core: un set de APIs para desarrolladores de aplicaciones o middleware con acceso a funcionalidades del procesador Cortex-M sin importar los dispositivos que utilice el microcontrolador.
+- CMSIS-DSP: libreía para operaciones de procesamiento digital de señales (DSP) como la FFT o filtros.
+- CMSIS-SVD: (*System View Description*) un mecanismo basado en XML para describir el set de periféricos en un microcontrolador.
+- CMSIS-RTOS: Es una especificación de API para OS embebidos que corren en Cortex-M. Permite desarrollar aplicaciones para múltiples OS, mejorando la portabilidad y reusabilidad.
+- CMSIS-DAP: (*Debug Access Port*) es una referencia para el diseño de interfaces de debug. Sporta USB, JTAG y otros.
+
+En la siguiente imagen se observa la arquitectura de capas y cómo CMSIS interactúa con el resto del sistema:
+
+![CMSIS-Core](imgs/cmsis_core.png)
+
+Las principales ventajas de utilizar CMSIS son la portabilidad y reusabilidad del código desarrollado.
+Un proyecto desarrollado para un microcontrolador Cortex-M puede ser migrado de forma sencilla a un procesador Cortex-M diferente o al microcontrolador Cortex-M de un fabricante diferente.
+
+## Tail chaining
+Cuando ocurre una excepción mientras el procesador esta manejando otra de igual o mayor prioridad, esta entra en un estado pendiente.
+Una vez que el procesador termina de gestionar la excepción, procede a gestionar la excepción pendiente.
+En lugar de restablecer los registros del stack (unstacking) y pushear los mismos en el stack de nuevo, el procesador saltea los pasos de unstacking y stacking y directamente entra a manejar la excepción pendiente lo antes posible.
+Haciendo esto el lapso de tiempo entre la gestión de dos excepciones se ve considerablemente reducido.
+También se ve reducido el consumo de energía, reduciendo la cantidad de accesos a memoria.
+
+Esta optimización es denominada *tail chaining*.
+
+## Late arrival
+Cuando ocurre una excepción, el procesador la acepta e inicia las operaciones de stacking. Si durante las operaciones de stacking ocurre otra excepción de mayor prioridad, se le da el servicio a la excepción de mayor prioridad, gestionandola tan pronto como se termina el stacking.
+
 ## SysTick timer
 Los procesadores Cortex-M tienen integrado un timer pequeño denominado SysTick (System Tick). Es un timer de 24 bits de decremento simple y puede ejecutarse con la frecuencia de clock del procesador o de una referencia de clock externa.
 
@@ -184,6 +242,41 @@ En sistemas embebidos que requieren robustez y gran fiabilidad, la MPU puede uti
 - Prevenir que tareas sin privilegios accedan a ciertos periféricos que pueden ser críticos en la fiabilidad y seguridad del sistema
 - Definir espacio de SRAM o RAM como no ejecutable para prevenir ataques por inyección.
 
-Si un acceso a memoria viola los permisos de acceso definidos por la MPU, la transferencia es bloqueada y se levanta una excepción. El gestor de la excepción luego decidirá si el sistema debe resetearse o únicamente se termina la tarea que produjo la excepción en un enterno con sistema operativo.
+Si un acceso a memoria viola los permisos de acceso definidos por la MPU, la transferencia es bloqueada y se levanta una excepción. El manejador de la excepción luego decidirá si el sistema debe resetearse o únicamente se termina la tarea que produjo la excepción en un enterno con sistema operativo.
 
 La MPU necesita ser programada y habilitada previo a utilizarse. Las regiones de la MPU puede sobreponerse. Si un sector memoria cae entre dos regiones programados por la MPU, los atributos de acceso y permisos se definen basándose en la región con valor numérico más alto. Por ejemplo, si una dirección de transferencia se ubica dentro del rango definido por la región 1 y la región 4, se utilizará la configuración de la región 4.
+
+## Excepción SVC (SuperVisor Call)
+Es una excepción, generalmente utilizada en sistemas con un RTOS, que puede generarse en modo no privilegiado a través de la instrucción SCV, para despertar el NVIC por software.
+Es un mecanismo mediante el cual una tarea con acceso no privilegiado puede solicitar un servicio al OS (que tiene acceso privilegiado).
+
+La tarea puede solicitar un servicio sin conocer la dirección de memoria asociada, solo necesita saber el número de servicio del SVC, los parámetros de entrada y lo que debe esperar como resultado. Luego el OS se encargará de decidir si responder la solicitud o no.
+
+Es la excepción 11 del vector de interrupciones (número de interrupción -5 de CMSIS).
+
+La instrucción SVC necesita que la prioridad de la excepción SVC sea mayor a la prioridad actual y que la excepción no es encuentre enmascarada por registros como PRIMASK. Si esto no se cumple, se producirá una excepción de falla.
+
+## Excepción PendSV
+Es la excepción 14 y tiene prioridad programable. Es una excepción generada seteando su estado pendiente escribiendo el registro ICSR (*Interrupt Control and State Register*). A diferencia de la excepción SVC, no es precisa, por lo que su estado pendiente puede setearse dentro del manejador de un interrupción de mayor prioridad y ejecutarse cuando dicha interrupción finalice.
+
+Puede programarse para ser ejecutada una vez que todas las tareas de interrupción han sido procesadas, asegurándose que PendSV tiene la prioridad de excepción más baja. Esto es muy útil para la operación de cambio de contexto.
+
+A continuación un ejemplo del uso de PendSV para las operaciones de cambio de contexto:
+
+![Cambio de contexto con PendSV](imgs/pendsv_context_switch.png)
+
+1. La tarea A llama a SVC para realizar un cambio de contexto.
+2. El OS recibe la solicitud, prepara el cambio de contexto, y setea el estado pendiendo de PendSV.
+3. Al finalizar CSV, entra a PendSV inmediatamente y realiza el cambio de contexto.
+4. Cuando PendSV finaliza, vuelve a Thread y ejecuta la tarea B.
+5. Ocurre una interrupción y se entra a la rutina correspondiente.
+6. Mientras se ejecuta la rutina de interrupción, se genera una exepción de SysTick.
+7. El OS realiza las tareas necesarias y setea el estado pendiente de PendSV para preparar el cambio de contexto.
+8. Al finalizar la excepción de SysTick, continua la rutina de interrupción.
+9. Cuando finaliza la rutina de interrupción, PendSV inicia y realiza el cambio de contexto.
+10. Cuando finaliza PendSV, vuelve a Thread y se ejecuta la tarea A.
+
+Además de su aplicación para cambio de contexto, PendSV puede utilizarse en sistemas sin un OS. Por ejemplo, cuando una rutina de interrupción necesita un tiempo de procesamiento considerable pero solo una primera porción del procesamiento necesita una prioridad muy alta. Si toda la ISR se ejecuta con prioridad alta, el resto de las rutinas de interrupción quedarán bloqueadas durante ese período. En esos casos se puede dividir la rutina en dos:
+
+- Una primera porción, que debe ejecutarse con alta prioridad y muy rápido, se coloca en una rutina de interrupción convencional. Al final de esa rutina se setea el estado pendiente de PendSV.
+- Una segunda porción, con el resto del procesamiento necesario, se coloca en el manejador de PendSV y se ejecuta con baja prioridad.
