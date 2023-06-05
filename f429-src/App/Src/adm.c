@@ -14,6 +14,7 @@
   */
 
 #include "adm.h"
+#include "cmsis_gcc.h"
 
 /**
  * @brief Funcion que inicializa un vector con ceros
@@ -22,9 +23,9 @@
 */
 static void zeros(uint32_t* vector, uint32_t longitud)
 {
-    for (uint32_t i = 0; i < longitud; i++)
+    for (longitud; longitud > 0; longitud--)
     {
-        vector[i] = 0;
+        vector[longitud-1] = 0;
     }
 }
 
@@ -35,9 +36,9 @@ static void zeros(uint32_t* vector, uint32_t longitud)
 */
 static void zeros16(uint16_t* vector, uint32_t longitud)
 {
-    for (uint32_t i = 0; i < longitud; i++)
+    for (longitud; longitud > 0; longitud--)
     {
-        vector[i] = 0;
+        vector[longitud-1] = 0;
     }
 }
 
@@ -50,9 +51,9 @@ static void zeros16(uint16_t* vector, uint32_t longitud)
 */
 static void productoEscalar32(uint32_t* vectorIn, uint32_t* vectorOut, uint32_t longitud, uint32_t escalar)
 {
-    for (uint32_t i = 0; i < longitud; i++)
+    for (longitud; longitud > 0; longitud--)
     {
-        vectorOut[i] = vectorIn[i] * escalar;
+        vectorOut[longitud-1] = vectorIn[longitud-1] * escalar;
     }
     
 }
@@ -66,9 +67,9 @@ static void productoEscalar32(uint32_t* vectorIn, uint32_t* vectorOut, uint32_t 
 */
 static void productoEscalar16(uint16_t* vectorIn, uint16_t* vectorOut, uint32_t longitud, uint16_t escalar)
 {
-    for (uint32_t i = 0; i < longitud; i++)
+    for (longitud; longitud > 0; longitud--)
     {
-        vectorOut[i] = vectorIn[i] * escalar;
+        vectorOut[longitud-1] = vectorIn[longitud-1] * escalar;
     }
     
 }
@@ -82,10 +83,11 @@ static void productoEscalar16(uint16_t* vectorIn, uint16_t* vectorOut, uint32_t 
 */
 static void productoEscalar12(uint16_t* vectorIn, uint16_t* vectorOut, uint32_t longitud, uint16_t escalar)
 {
-    for (uint32_t i = 0; i < longitud; i++)
+    for (longitud; longitud > 0; longitud--)
     {
-        vectorOut[i] = (vectorIn[i] * escalar);
-        vectorOut[i] = (vectorOut[i] < 0x0FFF) ? vectorOut[i] : 0x0FFF;
+        // vectorOut[longitud-1] = (vectorIn[longitud-1] * escalar);
+        // vectorOut[longitud-1] = (vectorOut[longitud-1] < 0x0FFF) ? vectorOut[longitud-1] : 0x0FFF;
+        vectorOut[longitud-1] = __USAT(vectorIn[longitud-1] * escalar, 12);
     }
     
 }
@@ -93,9 +95,27 @@ static void productoEscalar12(uint16_t* vectorIn, uint16_t* vectorOut, uint32_t 
 void app_adm(void)
 {
     uint32_t arr_len = 5;
-    uint16_t arr1[] = {0, 1000, 2000, 3000, 4000};
-    uint16_t arr2[arr_len];
+    uint32_t arr1[] = {0, 1000, 2000, 3000, 4000};
+    uint16_t arr2[] = {0, 1000, 2000, 3000, 4000};
+    uint32_t arr3[] = {0, 1001, 2001, 3001, 4001};
+    uint16_t arr4[] = {0, 1001, 2001, 3001, 4001};
 
+//#define USE_C
+#define USE_ASM
+#ifdef USE_C
+    zeros(arr1, arr_len);
     zeros16(arr2, arr_len);
-    productoEscalar12(arr1, arr2, arr_len, 2);
+    productoEscalar32(arr3, arr1, arr_len, 2);
+    productoEscalar16(arr4, arr2, arr_len, 3);
+    productoEscalar12(arr4, arr2, arr_len, 3);
+#endif /* USE_C */
+
+#ifdef USE_ASM
+    asm_zeros(arr1, arr_len);
+    asm_zeros16(arr2, arr_len);
+    asm_productoEscalar32(arr3, arr1, arr_len, 2);
+    asm_productoEscalar16(arr4, arr2, arr_len, 3);
+    asm_productoEscalar12(arr4, arr2, arr_len, 3);
+#endif /* USE_ASM */
+    __NOP();
 }

@@ -68,7 +68,8 @@ Core/Src/system_stm32f4xx.c
 
 # ASM sources
 ASM_SOURCES =  \
-startup_stm32f429xx.s
+startup_stm32f429xx.s \
+App/Src/asm_adm.s
 
 
 #######################################
