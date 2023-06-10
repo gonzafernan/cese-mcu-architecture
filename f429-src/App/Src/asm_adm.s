@@ -8,6 +8,8 @@
 .global asm_productoEscalar32
 .global asm_productoEscalar16
 .global asm_productoEscalar12
+.global asm_pack32to16
+.global asm_max
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 @ C Prototype
@@ -103,4 +105,57 @@
         strh r4, [r1, r2, LSL 1] ;  // Save result: vectorOut[i] = r4 
         bne mult12_loop ;           // Loop if index not 0
         pop {r4} ;                  // Recover context
+        bx lr ;                     // Return
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@ C Prototype
+@   void asm_pack32to16(int32_t* vectorIn, int16_t* vectorOut, uint32_t longitud)
+@ Parameters:
+@ - r0: vectorIn
+@ - r1: vectorOut
+@ - r2: longitud
+@
+@ Auxiliar:
+@ - r3: value
+@
+.thumb_func
+    asm_pack32to16:
+        subs r2, #1                 // update index
+
+        ldr r3, [r0, r2, LSL 2]     // load input value
+        ssat r3, #16, r3            // saturate value to 16 bits
+        strh r3, [r1, r2, LSL 1]    // save output value
+
+        bne asm_pack32to16          // exit condition
+        bx lr ;                     // return
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@ C Prototype
+@ uint32_t asm_max(int32_t* vectorIn, uint32_t longitud)
+@ Parameters:
+@ - r0: vectorIn        /input/
+@ - r1: longitud        /length/
+@
+@ Auxiliar:
+@ - r2: index
+@ - r3: max value
+@ - r4: value to compare
+@
+.thumb_func
+    asm_max:
+        sub r1, #1 ;                // length - 1
+        mov r2, r1 ;                // index = length - 1
+        ldr r3, [r0, r2, LSL 2]     // max value initialization
+    asm_max_loop:
+        ldr r4, [r0, r1, LSL 2] ;   // value = vectorIn[i]
+        cmp r3, r4
+        it lt                       // compare with max value
+        movlt r3, r4                // update max value
+        it lt                       // compare with max value
+        movlt r2, r1                // update max index
+
+        subs r1, #1                 // update length
+        bne asm_max_loop            // exit condition
+
+        mov r0, r2                  // update return value
         bx lr ;                     // Return
