@@ -56,7 +56,6 @@ static void productoEscalar32(uint32_t* vectorIn, uint32_t* vectorOut, uint32_t 
     {
         vectorOut[longitud-1] = vectorIn[longitud-1] * escalar;
     }
-    
 }
 
 /**
@@ -72,7 +71,6 @@ static void productoEscalar16(uint16_t* vectorIn, uint16_t* vectorOut, uint32_t 
     {
         vectorOut[longitud-1] = vectorIn[longitud-1] * escalar;
     }
-    
 }
 
 /**
@@ -90,7 +88,6 @@ static void productoEscalar12(uint16_t* vectorIn, uint16_t* vectorOut, uint32_t 
         // vectorOut[longitud-1] = (vectorOut[longitud-1] < 0x0FFF) ? vectorOut[longitud-1] : 0x0FFF;
         vectorOut[longitud-1] = __USAT(vectorIn[longitud-1] * escalar, 12);
     }
-    
 }
 
 #define MOVING_AVERAGE_LENGTH 10
@@ -157,6 +154,49 @@ static uint32_t max(int32_t* vectorIn, uint32_t longitud)
     return index;
 }
 
+/**
+ * @brief Funcion que decima un vector de 32 bits cada N muestras
+ * @param vectorIn: Puntero al vector de entrada
+ * @param vectorOut: Puntero al vector de salida (resultado)
+ * @param longitud: Longitud de los vectores de entrada y salida
+ * @param N: Periodo de muestra a descartar
+*/
+static void downsampleN(int32_t* vectorIn, int32_t* vectorOut, uint32_t longitud, uint32_t N)
+{
+    uint32_t i, n = 0, m = 0;
+    for (i = 0; i < longitud; i++)
+    {
+        if (m == N - 1)
+        {
+            m = 0;
+            continue;
+        }
+        vectorOut[n] = vectorIn[i];
+        n++;
+        m++;
+    }
+}
+
+/**
+ * @brief Funcion que invierte un vector de 16 bits
+ * @param vector: Vector a invertir
+ * @param longitud: Longitud del vector a invertir
+*/
+static void invertir (uint16_t* vector, uint32_t longitud)
+{
+    uint32_t start = 0;
+    longitud--;
+    uint16_t aux;
+    while (start < longitud)
+    {
+        aux = vector[start];
+        vector[start] = vector[longitud];
+        vector[longitud] = aux;
+        start++;
+        longitud--;
+    }
+}
+
 /* Test variables */
 uint32_t arr_len = 5;
 uint32_t arr1[] = {0, 1000, 2000, 3000, 4000};
@@ -169,9 +209,12 @@ int32_t pack_input[4] = {-70000, 70000, -500, 500};
 int16_t pack_output[4];
 int32_t max_input[5] = {-50, 100, 350, -360, 0};
 uint32_t max_output;
+int32_t downsample_input[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+int32_t downsample_output[6];
+uint16_t reverse_input[5] = {1, 2, 3, 4, 5};
 
-#define USE_C
-// #define USE_ASM
+// #define USE_C
+#define USE_ASM
 
 void app_adm(void)
 {
@@ -185,6 +228,8 @@ void app_adm(void)
     filtroVentana10(ma_input, ma_output, 20);
     pack32to16(pack_input, pack_output, 4);
     max_output = max(max_input, 5);
+    downsampleN(downsample_input, downsample_output, 9, 3);
+    invertir(reverse_input, 5);
 #endif /* USE_C */
 
 #ifdef USE_ASM
@@ -196,6 +241,8 @@ void app_adm(void)
     asm_moving_average(ma_input, ma_output, 20);
     asm_pack32to16(pack_input, pack_output, 4);
     max_output = asm_max(max_input, 5);
+    asm_downsample(downsample_input, downsample_output, 9, 3);
+    asm_reverse(reverse_input, 5);
 #endif /* USE_ASM */
 
     __NOP();
