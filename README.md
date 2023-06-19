@@ -128,6 +128,21 @@ También se puede acceder al MSP y PSP directamente utilizando las instrucciones
 En las aplicaciones simples, sin un RTOS, se puede utilizar solo el MSP e ignorar el PSP.
 En sistemas con un RTOS, la gestión de interrupciones utiliza MSP, mientras que las tareas de la aplicación utilizan el PSP. Cada tarea de la aplicación posee su propio espacio de stack y en el cambio de contexto el RTOS actualiza el PSP al espacio correspondiente.
 
+## Ejecución condicional
+Los procesadores Cortex-M3 y Cortex-M4 soportan ejecución condicional. Después de la ejecución de una instrucción IT (*If-Then*) hasta 4 instrucciones siguientes pueden ser ejecutadas condicionalmente basado en la condición especificada en la instrucción IT y el valor de APSR.
+
+Por ejemplo:
+
+```asm
+CMP R0, #1   ; Comparacion de R0 con 1
+ITE EQ       ; La siguiente instruccion se ejecuta si Z esta seteado (T en ITE)
+             ; la siguiente se ejecuta si Z no esta seteado (E en ITE)
+MOVEQ R3, #2 ; Setea R3 a 2 si EQ
+MOVNE R3, #1 ; Setea R3 a 1 si NE
+```
+
+La instrucción IT se compondra de acuerdo a las ejecuciones condicionales subsiguientes: ITT, ITTEE, ITETT, o cualquier otra combinación de hasta 4 sentencias.
+
 ## Reset, NMI y Hardfault
 La excepciones de reset, NMI y Hardfault tienen nivel de prioridad fijo (no configurable) y se representan con números negativos para indicar que tienen prioridad mayor al resto. Las prioridades son las siguientes:
 
@@ -193,6 +208,34 @@ Como las operaciones de stack en los procesadores Cortex-M3 y Cortex-M4 se basan
 
 ![Initial stack pointer](imgs/reset_initial_values.png)
 
+## Core peripherals
+Se refieren a un set de periféricos integrados dentro del core del procesador y que, por lo tanto, esta acoplados estrechamente a él. Estan diseñados para soportar operaciones básicas del sistema y asistir en la efecución del software. 
+Generalmente se accede a ellos a través de registros e instrucciones que provee la arquitectura.
+Ejemplos de core peripherals son el NVIC (*Nested Vectored Interrupt Controller*) y el [SysTick](#systick-timer).
+
+El resto de los periféricos en un microcontrolador pueden ser timers, UART para comunicación serial, SPI, I2C, GPIOs, etc. Estos extienden las funcionalidades del microcontroldor.
+Entonces, la principal diferencia entre un core peripheral y el resto de los periféricos se encuentra en el nivel de integración con el core del procesador.
+
+## Prioridad de interrupciones
+Los procesadores Cortex-M3 y Cortex-M4 soportan hasta 256 niveles de prioridad programable (con un máximo de 128 niveles de pre-emption). Los fabricantes reducen la cantidad de niveles de prioridad configurable, para reducir la complejidad del NVIC, para reducir el consumo de energía y porque las aplicaciones solo necesitan un número reducido de prioridades.
+
+Los niveles de prioridad de interuupción se controlan con registros de nivel de prioridad, que tendrán de 3 a 8 bits según la cantidad de niveles que implemente el fabricante. Por ejemplo, si un fabricante solo implementa 3 bits, el registro será como la siguiente figura y los niveles de prioridad disponibles serán 0x00 (la más alta), 0x20, 0x40, 0x60, 0x80, 0xA0, 0xC0 y 0xE0 (la más baja).
+
+![3-bit priority level register](imgs/3bit_priority_reg.png)
+
+Solo hay 128 niveles de pre-emption disponibles porque los bits de nivel de prioridad implementados a su vez se dividen en dos partes: prioridad de grupo y subprioridad. Esa división se realiza mediante el registro de configuración *Priority Group* en el SCB (*System Control Block*).
+
+El **nivel de prioridad de grupo** define si una interrupción puede tener lugar cuando el procesador ya se encuentra gestionando otra interrupción.
+El **nivel de subprioridad** solo se utiliza qué interrupción debe gestionarse primero cuando ocurren dos excepciones pertenecientes al mismo grupo. 
+
+La mayor cantidad de bits que puede asignarse a prioridad de grupo es 7, dejando un bit de subprioridadm por lo tanto la mayor cantidad de niveles de pre-emption que permite la arquitectura es 128.
+
+Por ejemplo, si el *Priority Group* se setea en 5 cuando solo hay 3 bits implementados para niveles de interrupción, la configuración es la siguiente:
+
+![3-bit priority level with group priority 5](imgs/3bit_priority_group5_reg.png)
+
+Se tendrán 4 niveles de prioridad de grupo (4 niveles de pre-emption) y cada grupo tendrá dos niveles de subprioridad.
+
 ## CMSIS
 CMSIS fue desarrollado por ARM para permitir a los fabricantes de microcontroladores usar una infraestructura de software consistente a la hora de desarrollar soluciones de software para microcontroladores Cortex-M.
 
@@ -210,6 +253,47 @@ En la siguiente imagen se observa la arquitectura de capas y cómo CMSIS interac
 
 Las principales ventajas de utilizar CMSIS son la portabilidad y reusabilidad del código desarrollado.
 Un proyecto desarrollado para un microcontrolador Cortex-M puede ser migrado de forma sencilla a un procesador Cortex-M diferente o al microcontrolador Cortex-M de un fabricante diferente.
+
+## Secuencia de excepción
+El procesador acepta una excepción si se cumplen las siguientes condiciones:
+
+- El procesador se encuentra corriendo.
+- La excepción se encuentra habilitada.
+- La excepción tiene mayor prioridad que el nivel de prioridad actual.
+- La excepción no esta bloqueada por ningun registro para enmascarar excepciones.
+
+La **secuencia de entrada** de una excepción consiste en las siguientes operaciones:
+
+- Stacking de varios registros, incluyendo la dirección de regreso del stack seleccionado actualmente. Esto permite a al handler de la excepción estar implementado como una función en C. Si el procesador se encuentra en modo Thread y utilizando el PSP, se utiliza esa región de stack para este stacking, de lo contrario se utiliza la región del MSP.
+- Fetch del vector de la excepción (la dirección de inicio del handler de la excepción). Esto se puede realizar en paralelo con el stacking mencionado previamente.
+- Fetch de las instrucciones del handler de la excepción a ejecutar.
+- Actualización de varios registros del NVIC y el core. Esto incluye el estado pendiente y activo de la excepción, los registros como el PSR (*Program Status Register*), LR (*Link Register*), PC (*Program Counter*) y el SP (*Stack Pointer*).
+
+Dentro de la **ejecución del handler** se pueden llevar a cabo las tareas necesarias para el periférico que solicitó el servicio. El procesador se encuentra en modo Handler y por lo tanto:
+
+- Se utiliza el MSP para las operaciones de stack.
+- El procesador tiene acceso privilegiado.
+
+Si en este punto de ejecución llega una interrupeción de mayor prioridad, esta será aceptada y el handler en ejecución es suspendido y pre-empted por el handler de la interrupción de alta prioridad (interrupción anidada).
+
+Si la nueva interrupción es de igual o menor prioridad, queda en estado pendiente y será atendida una vez que el handler actual se complete.
+
+En los procesadores Cortex-M, el **mecanismo de retorno de la excepción** se desencadena utilizando una dirección de retorno especial denominada EXC_RETURN. Ese valor se genera en la entrada de la excepción y es almacenado en el LR. Cuando el valor se escribe en el PC con alguna de las instrucciones de retorno de excepción permitidas, se desencadena el macanismo de retorno.
+
+Cuando se desencadena el mecanismo de retorno de la excepción, el procesador accede al valor de los registros que se pushearon en la pila durante la entrada a la excepción y los almacena nuevamente en el banco de registros (unstacking). Además, se actualizan los registros del NVIC  (estado activo) y del core (PSR, SP, CONTROL) correspondientes.
+
+En paralelo a la operación de unstacking, el procesador puede iniciar el fetch de las instrucciones del programa interrumpido previamente para permitir la continuación de éste lo antes posible.
+
+El uso del valor EXC_RETURN para desencadenar el retorno de la excepción permite que los handlers puedan ser implementados como funciones en C.
+
+## Lazy stacking
+El *lazy stacking* es una característica vinculada al stacking de registros en la unidad de puntos flotantes, por lo tanto solo es relevante en procesadores Cortex-M4 con FPU.
+
+Si la FPU esta habilitada y se encuentra en uso, los registros en el banco de registros de la FPU contienen información que puede ser necesario guardar. Si se requiere colocar en la pila registros de punto flotante por cada excepción, es necesario llevar a cabo 17 operaciones de push a memoria adicionales, lo que incrisa la latencia de interrupción entre 12  29 ciclos.
+
+Cuando ocurre una excepción con la FPU habilitada y en uso (indicado por el bit 2 de CONTROL denominado FPCA), se utiliza el formato de stack largo. Sin embargo, el mecanismo de *lazy stacking* reserva el espacio en pila para esos registros, pero solo coloca en la pila R0 a R3, R12, LR, la dirección de retorno y xPSR. De esta forma, la latencia de interrupción se mantiene en 12 ciclos. Si se realiza el *lazy stacking* un registro interno LSPACT (*Lazy Stacking Preservation Active*) se setea y otro registro denominado *Floating Point Context Address Register* (FPCAR) almacena la dirección del espacio de stack reservado para el registro de punto flotante.
+
+Si el handler de la excepción no requiere operación de punto flotante, los registros de punto flotante se mantienen intactos durante toda la ejecución del handler. Si el handler de la excepción requiere operaciones de punto flotante, el procesador detecta el conflicto y detiene el procesador, realiza el push a stack de los registros de punto flotante en el espacio reservado para ello y limpia LSPACT. Luego de eso se retoma el handler de la excepción. De esta forma, el stack de los registros de punto flotante se realiza solo si es necesario.
 
 ## Tail chaining
 Cuando ocurre una excepción mientras el procesador esta manejando otra de igual o mayor prioridad, esta entra en un estado pendiente.
