@@ -27,6 +27,7 @@
 /* USER CODE BEGIN Includes */
 #include "adm.h"
 #include "corr.h"
+#include "eco.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -112,6 +113,8 @@ int main(void)
   /* C implementation */
   int16_t out1[5];
   corr(in1_test, in2_test, out1, 3);
+
+  app_eco();
 
   app_adm();
   /* USER CODE END 2 */

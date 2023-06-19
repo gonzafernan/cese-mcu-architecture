@@ -1,6 +1,6 @@
 /**
   ******************************************************************************
-  * @file           : corr.h
+  * @file           : eco.h
   * @author         : Gonzalo G. Fernandez
   * @brief          : CESE Arquitectura de Microprocesadores
   ******************************************************************************
@@ -13,12 +13,13 @@
   ******************************************************************************
   */
 
-#ifndef __CORR_H
-#define __CORR_H
+#ifndef __ECO_H
+#define __ECO_H
 
 #include <stdint.h>
 
-void corr(int16_t* vectorX, int16_t* vectorY, int16_t* vectorCorr, uint32_t longitud);
-void asm_corr(int16_t* vectorX, int16_t* vectorY, int16_t* vectorCorr, uint32_t longitud);
+void asm_eco(int16_t* signal, uint32_t length);
+void asm_simd_eco(int16_t* signal, uint32_t length);
+void app_eco(void);
 
-#endif /* __CORR_H */
+#endif /* __ECO_H */
