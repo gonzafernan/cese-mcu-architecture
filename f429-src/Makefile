@@ -36,7 +36,10 @@ BUILD_DIR = build
 ######################################
 # C sources
 C_SOURCES =  \
+App/Src/perf_counter.c \
 App/Src/adm.c \
+App/Src/corr.c \
+App/Src/eco.c \
 Core/Src/main.c \
 Core/Src/gpio.c \
 Core/Src/eth.c \
@@ -68,8 +71,11 @@ Core/Src/system_stm32f4xx.c
 
 # ASM sources
 ASM_SOURCES =  \
-startup_stm32f429xx.s
-
+startup_stm32f429xx.s \
+App/Src/asm_adm.s \
+App/Src/asm_moving_average.s \
+App/Src/asm_corr.s \
+App/Src/asm_eco.s
 
 #######################################
 # binaries

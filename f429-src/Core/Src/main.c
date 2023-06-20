@@ -25,7 +25,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "perf_counter.h"
 #include "adm.h"
+#include "corr.h"
+#include "eco.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,6 +48,15 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+#define TEST_2
+#ifdef TEST_1
+int16_t in1_test[3] = {1, 2, 3};
+int16_t in2_test[3] = {0, 1, 2};
+#endif /* TEST_1 */
+#ifdef TEST_2
+int16_t in1_test[3] = {1, -2, 3};
+int16_t in2_test[3] = {0, 1, 2};
+#endif /* TEST_2 */
 
 /* USER CODE END PV */
 
@@ -73,6 +85,8 @@ int main(void)
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+  // Activa contador de ciclos (iniciar una sola vez)
+  perf_counter_init();
 
   /* USER CODE BEGIN Init */
 
@@ -91,6 +105,17 @@ int main(void)
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
   /* USER CODE BEGIN 2 */
+  /* ASM implementation */
+  int16_t out[5];
+  perf_counter_reset();
+  asm_corr(in1_test, in2_test, out, 3);
+  const volatile uint32_t Ciclos = perf_counter_get();
+  /* C implementation */
+  int16_t out1[5];
+  corr(in1_test, in2_test, out1, 3);
+
+  app_eco();
+
   app_adm();
   /* USER CODE END 2 */
 

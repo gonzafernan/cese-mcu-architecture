@@ -4,6 +4,28 @@ author: Gonzalo G. Fernandez
 ---
 Carrera de Especialización en Sistemas Embebidos - Universidad de Buenos Aires
 ---
+
+# Resultados de ejercicios
+
+Comparación de cantidad de ciclos entre implementaciones en C y assembly:
+
+| Ejercicio | Ciclos en C | Ciclos en assembly |
+|-----------|---|----------|
+| zeros | 89 | 61 |
+| productoEscalar32 | 90 | 72 |
+| productoEscalar16 | 95 | 77 |
+| productoEscalar12 | 90 | 76 |
+| filtroVentana | 2018 | 1809 |
+| pack32to16 | 100 | 53 |
+| max | 84 | 0 (se necesita caso de prueba más grande) |
+| downsample | 150 | 0  (se necesita caso de prueba más grande) |
+| invertir | 51 |  0  (se necesita caso de prueba más grande) |
+
+Comparación para ejercicio 10 (Eco):
+- Implementación en C: 54672
+- Implementación en assembly: 48923
+- Implementación en assembly con SIMD: 38821
+
 # Arquitectura de Microprocesadores
 
 ## Familias de microprocesadores/microcontroladores de ARM
