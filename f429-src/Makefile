@@ -36,6 +36,7 @@ BUILD_DIR = build
 ######################################
 # C sources
 C_SOURCES =  \
+App/Src/perf_counter.c \
 App/Src/adm.c \
 App/Src/corr.c \
 App/Src/eco.c \

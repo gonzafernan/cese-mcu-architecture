@@ -25,6 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "perf_counter.h"
 #include "adm.h"
 #include "corr.h"
 #include "eco.h"
@@ -85,8 +86,7 @@ int main(void)
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
   // Activa contador de ciclos (iniciar una sola vez)
-  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-  DWT->CTRL |= 1 << DWT_CTRL_CYCCNTENA_Pos;
+  perf_counter_init();
 
   /* USER CODE BEGIN Init */
 
@@ -107,9 +107,9 @@ int main(void)
   /* USER CODE BEGIN 2 */
   /* ASM implementation */
   int16_t out[5];
-  DWT->CYCCNT = 0;
+  perf_counter_reset();
   asm_corr(in1_test, in2_test, out, 3);
-  const volatile uint32_t Ciclos = DWT->CYCCNT;
+  const volatile uint32_t Ciclos = perf_counter_get();
   /* C implementation */
   int16_t out1[5];
   corr(in1_test, in2_test, out1, 3);

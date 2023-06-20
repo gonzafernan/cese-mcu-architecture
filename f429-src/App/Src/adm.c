@@ -14,6 +14,7 @@
   */
 
 #include "adm.h"
+#include "perf_counter.h"
 #include "cmsis_gcc.h"
 
 
@@ -211,7 +212,10 @@ int32_t max_input[5] = {-50, 100, 350, -360, 0};
 uint32_t max_output;
 int32_t downsample_input[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
 int32_t downsample_output[6];
-uint16_t reverse_input[5] = {1, 2, 3, 4, 5};
+uint16_t reverse_input[] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+
+/* Performance counter */
+uint32_t perf_counter[9];
 
 // #define USE_C
 #define USE_ASM
@@ -220,29 +224,107 @@ void app_adm(void)
 {
 
 #ifdef USE_C
+    /* Exercise 1: C */
+    perf_counter_reset();
     zeros(arr1, arr_len);
-    zeros16(arr2, arr_len);
+    perf_counter[0] = perf_counter_get();
+
+    // perf_counter_reset();
+    // zeros16(arr2, arr_len);
+    // perf_counter = perf_counter_get();
+
+    /* Exercise 2: C */
+    perf_counter_reset();
     productoEscalar32(arr3, arr1, arr_len, 2);
+    perf_counter[1] = perf_counter_get();
+
+    /* Exercise 3: C */
+    perf_counter_reset();
     productoEscalar16(arr4, arr2, arr_len, 3);
+    perf_counter[2] = perf_counter_get();
+
+    /* Exercise 4: C */
+    perf_counter_reset();
     productoEscalar12(arr4, arr2, arr_len, 3);
+    perf_counter[3] = perf_counter_get();
+
+    /* Exercise 5: C */
+    perf_counter_reset();
     filtroVentana10(ma_input, ma_output, 20);
+    perf_counter[4] = perf_counter_get();
+
+    /* Exercise 6: C */
+    perf_counter_reset();
     pack32to16(pack_input, pack_output, 4);
+    perf_counter[5] = perf_counter_get();
+
+    /* Exercise 7: C */
+    perf_counter_reset();
     max_output = max(max_input, 5);
+    perf_counter[6] = perf_counter_get();
+
+    /* Exercise 8: C */
+    perf_counter_reset();
     downsampleN(downsample_input, downsample_output, 9, 3);
-    invertir(reverse_input, 5);
+    perf_counter[7] = perf_counter_get();
+
+    /* Exercise 9: C */
+    perf_counter_reset();
+    invertir(reverse_input, sizeof(reverse_input)/sizeof(uint16_t));
+    perf_counter[8] = perf_counter_get();
+
 #endif /* USE_C */
 
 #ifdef USE_ASM
+    /* Exercise 1: ASM */
+    perf_counter_reset();
     asm_zeros(arr1, arr_len);
-    asm_zeros16(arr2, arr_len);
+    perf_counter[0] = perf_counter_get();
+
+    // perf_counter_reset();
+    // asm_zeros16(arr2, arr_len);
+    // perf_counter = perf_counter_get();
+
+    /* Exercise 2: ASM */
+    perf_counter_reset();
     asm_productoEscalar32(arr3, arr1, arr_len, 2);
+    perf_counter[1] = perf_counter_get();
+
+    /* Exercise 3: ASM */
+    perf_counter_reset();
     asm_productoEscalar16(arr4, arr2, arr_len, 3);
+    perf_counter[2] = perf_counter_get();
+
+    /* Exercise 4: ASM */
+    perf_counter_reset();
     asm_productoEscalar12(arr4, arr2, arr_len, 3);
+    perf_counter[3] = perf_counter_get();
+
+    /* Exercise 5: ASM */
+    perf_counter_reset();
     asm_moving_average(ma_input, ma_output, 20);
+    perf_counter[4] = perf_counter_get();
+
+    /* Exercise 6: ASM */
+    perf_counter_reset();
     asm_pack32to16(pack_input, pack_output, 4);
+    perf_counter[5] = perf_counter_get();
+
+    /* Exercise 7: ASM */
+    perf_counter_reset();
     max_output = asm_max(max_input, 5);
+    perf_counter[6] = perf_counter_get();
+
+    /* Exercise 8: ASM */
+    perf_counter_reset();
     asm_downsample(downsample_input, downsample_output, 9, 3);
-    asm_reverse(reverse_input, 5);
+    perf_counter[7] = perf_counter_get();
+
+    /* Exercise 9: ASM */
+    perf_counter_reset();
+    asm_reverse(reverse_input, sizeof(reverse_input)/sizeof(uint16_t));
+    perf_counter[8] = perf_counter_get();
+
 #endif /* USE_ASM */
 
     __NOP();

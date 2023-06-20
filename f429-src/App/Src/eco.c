@@ -4,13 +4,14 @@
  * start eco = 44100 muestras/s * 1s/1000ms * 20ms = 882 muestras
 */
 
+#include "perf_counter.h"
 #include "eco.h"
 #include "cmsis_gcc.h"
 
-// #define ECO_START       882
-#define ECO_START       20
-// #define INPUT_LENGTH    4096
-#define INPUT_LENGTH    80
+#define ECO_START       882
+// #define ECO_START       20
+#define INPUT_LENGTH    4096
+// #define INPUT_LENGTH    80
 
 int16_t eco_input[INPUT_LENGTH];
 
@@ -27,6 +28,7 @@ static void eco(int16_t* signal, uint32_t length)
     }
 }
 
+uint32_t eco_counter[3];
 
 void app_eco(void)
 {
@@ -36,6 +38,20 @@ void app_eco(void)
         value += 5;
         eco_input[i] = value;
     }
+    /* Eco C */
+    perf_counter_reset();
+    eco(eco_input, INPUT_LENGTH);
+    eco_counter[0] = perf_counter_get();
+
+    /* Eco ASM */
+    perf_counter_reset();
+    asm_eco(eco_input, INPUT_LENGTH);
+    eco_counter[1] = perf_counter_get();
+
+    /* Eco ASM with SIMD */
+    perf_counter_reset();
     asm_simd_eco(eco_input, INPUT_LENGTH);
+    eco_counter[2] = perf_counter_get();
+
     __NOP();
 }
