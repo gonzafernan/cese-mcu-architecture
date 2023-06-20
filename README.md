@@ -364,3 +364,49 @@ Además de su aplicación para cambio de contexto, PendSV puede utilizarse en si
 
 - Una primera porción, que debe ejecutarse con alta prioridad y muy rápido, se coloca en una rutina de interrupción convencional. Al final de esa rutina se setea el estado pendiente de PendSV.
 - Una segunda porción, con el resto del procesamiento necesario, se coloca en el manejador de PendSV y se ejecuta con baja prioridad.
+
+## Uso de sufijo en instrucciones
+En los procesadores Cortex-M3 y Cortex-M4, las instrucciones pueden tener sufijos que modifican el comportamiento de ls instrucción.
+
+Una instrucciónd e procesamiento de datos puede estar opcionalmente acompañada del sufijo "s" para actualizar el APSR (banderas). Por ejemplo:
+
+```asm
+SUBS R1 #1      ; Decrementar R1 y actualizar APSE
+BNE loop_tag    ; Ir a loop_flag si Z=1 (R1 es 0)
+```
+
+El segundo tipo de sufijo es para ejecución condicional de instrucciones. Los procesadores Cortex-M3 y Cortex-M4 soportan branch condicional y ejecución condicional de instrucciones poniendo las instrucciones condicionales dentro luego de una instrucción IT ([Ver sección de ejecución condicional](#ejecución-condicional)).
+
+Además, existen sufijos para especificar el tipo de dato a utilizar:
+
+- .N, .W: Especificar el uso de una instrucción de 16 o 32 bits.
+- .32, .F32: Especificar la operación con datos de 32 bits de precisión simple.
+- .64, .F64: Especificar la operación con datos de 64 bits de precisión doble.
+
+## Aritmética saturada
+La saturación es muy utilizada en el procesamiento de señales. Si después de cierta operación la amplitud de la señal excede el máximo permitido por el tipo de dato, la representación numérica provoca que el valor vaya del máximo positivo al máximo negativo o viceversa. Este tipo de saltos es muy perjudicial, la saturación permite que el valor se fije en el máximo mientras los resultados superen el rango máximo de la representación. La distorición en la señal todavía estarápresente, pero de una forma menos agresiva para el procesamiento posterior.
+
+![Saturation operations](imgs/saturation.png)
+
+Los procesadores Cortex-M3 y Cortex-M4 poseen instrucciones de saturación para datos signados y no signados (SSAT, USAT). A continuación un ejemplo de su uso para saturar un dato a una representación de 8 bits:
+
+```asm
+MOV R0 #0xFFFFFFFF  ; Max. en 32 bits
+USAT R0, #8, R0     ; Saturacion a 8 bits (0xFF)
+```
+
+## Interacción entre C y Assembly
+La interacción esta especificada en un documento de ARM denominado *Procedure Call Standard for the ARM Architecture* (AAPCS):
+
+- Una función debe retener los valores en R4 a R11, R13, R14 (y S16 a S31 en Cortex-M4 con FPU). Si estos registros se cambian durante la efecución de la función, deben guardarse en stack al iniciar y recuperarlos antes de retornar.
+- Los parámetros de entrada se pasan a la función utilizando R0 (primer parámetro), R1 (segundo parámetro), R2 (tercer parámetro) y R3 (cuarto parámetro). Usualmente el valor de retorno de la función se almacena en R0. Si la función recibe más de 4 parámetros el stack es utilizado.
+- Si una función en assembly necesita llamar una función en C, debe asegurarse que el stack pointer seleccionado en ese momento apunto a una palabra doble alineada con la dirección (requerimiento del estádar EABI).
+
+## SIMD (*Single Instruction Multiple Data*)
+Las instrucciones SIMD permiten operar con más de un dato en una única instrucción, empaquetanto y desempaquetando datos en registros de 32 bits para las arquitecturas Cortex-M. Esto permite aumentar el *throutput* del sistema, es decir, la cantidad de datos procesados por ciclo de operación.
+
+Por ejemplo, la instrucción QADD16 permite operar con dos registros de 32 bits, cada uno con dos enteros signados de 16 bits, sumar sus mitades superiores y mitades inferiores con saturación signada y guardarlos en un registro de 32 bits, en su mitad superior e inferior respectivamente.
+
+![QADD16 SIMD](imgs/simd_qadd16.png)
+
+Es ampliamente utilizado en el procesamiento digital de señales, ya que con una instrucción pueden ejecutarse operaciones complejas pero muy frecuentes con multiples datos.
